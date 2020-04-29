@@ -1,3 +1,7 @@
+# PolyPowerModels
+Dev: [![Build Status](https://travis-ci.org/tweisser/PolyModels.svg?branch=master)](https://travis-ci.org/tweisser/PolyModels)[![codecov](https://codecov.io/gh/tweisser/PolyModels/branch/master/graph/badge.svg)](https://codecov.io/gh/tweisser/PolyModels)
+
+
 PolyModels provides an JuMP.AbstractModel that represents a polynomial optimization problem of the form 
 ```
 Min/Max f(x)
