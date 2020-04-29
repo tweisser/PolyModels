@@ -17,7 +17,7 @@ end
 function JuMP.constraints_string(print_mode, model::PolyModel)
     strings = String[]
     for (cref, con) in model.constraints
-        push!(strings, constraint_string(print_mode, cref, in_math_mode = true))
+        push!(strings, JuMP.constraint_string(print_mode, con))
     end
     return strings
 end
