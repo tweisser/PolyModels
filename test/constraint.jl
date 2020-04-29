@@ -214,9 +214,9 @@ function constraints_test(ModelType::Type{PolyModel{CT, VT}}) where {CT, VT}
     @testset "all_constraints (scalar)" begin
         model = PolyModel{Float64, PolyVar{true}}()
         @variable(model, x >= 0)
-        @test 1 == @inferred num_constraints(model, polynomialtype(Int, PolyVar{true}),
+        @test 1 == num_constraints(model, polynomialtype(Int, PolyVar{true}),
                                              MOI.GreaterThan{Float64})
-        @test 0 == @inferred num_constraints(model, polynomialtype(Int, PolyVar{true}) ,
+        @test 0 ==  num_constraints(model, polynomialtype(Int, PolyVar{true}) ,
                                              MOI.LessThan{Float64})
      end
 
@@ -224,7 +224,7 @@ function constraints_test(ModelType::Type{PolyModel{CT, VT}}) where {CT, VT}
         model = PolyModel{Float64, PolyVar{true}}()
         @variable(model, x >= 0, Bin)
         @constraint(model, 2x <= 1)
-        constraint_types = @inferred list_of_constraint_types(model)
+        constraint_types = list_of_constraint_types(model)
         @test Set(constraint_types) == Set([
             (Polynomial{true,Int64}, MathOptInterface.EqualTo{Float64}),
             (Polynomial{true,Int64}, MathOptInterface.LessThan{Float64})
