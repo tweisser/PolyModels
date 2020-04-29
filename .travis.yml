@@ -1,0 +1,12 @@
+language: julia
+codecov: true
+os:
+    - linux
+    - osx
+julia:
+    - 1.0
+    - 1.4
+    - nightly
+matrix:
+    allow_failures:
+        - julia: nightly
