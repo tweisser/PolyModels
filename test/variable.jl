@@ -1,6 +1,6 @@
 #tests adapted from JuMP/test/variable.jl 
 
-function test_variable_no_bound(ModelType::Type{PolyModel{CT, VT}}) where {CT, VT}
+function test_variable_no_bound(ModelType::Type{PolyModel{VT}}) where {VT}
     model = ModelType()
     @variable(model, nobounds)
     @test nobounds isa VT
@@ -143,7 +143,7 @@ function test_variable_is_valid_delete(ModelType)
     @test_throws Exception JuMP.delete(second_model, x)
 end
 
-function test_variable_oneto_index_set(ModelType::Type{PolyModel{CT, VT}}) where {CT, VT}
+function test_variable_oneto_index_set(ModelType::Type{PolyModel{VT}}) where {VT}
     # Tests that Base.OneTo can be used in index set (JuMP issue #933).
     model = ModelType()
     auto_var = @variable(model, [Base.OneTo(3), 1:2], container=Auto)
@@ -218,7 +218,7 @@ function test_variable_condition_in_indexing(ModelType)
     test_two_dim(anon_two_dim)
 end
 
-function test_variable_macro_return_type(ModelType::Type{PolyModel{CT, VT}}) where {CT, VT}
+function test_variable_macro_return_type(ModelType::Type{PolyModel{VT}}) where {VT}
     model = ModelType()
     @variable(model, x[1:3, 1:4, 1:2])
     @test typeof(x) == Array{VT,3}
@@ -307,15 +307,15 @@ function variables_test(ModelType)
 end
 
 @testset "Variables for PolyModel" begin
-    variables_test(PolyModel{Float64, PolyVar{true}})
+    variables_test(PolyModel{PolyVar{true}})
     @testset "all_variables" begin
-        model = PolyModel{Float64, PolyVar{true}}()
+        model = PolyModel{PolyVar{true}}()
         @variable(model, x)
         @variable(model, y)
         @test [x, y] == @inferred JuMP.all_variables(model)
     end
     @testset "@variables" begin
-        model = PolyModel{Float64, PolyVar{true}}()
+        model = PolyModel{PolyVar{true}}()
         @variables model begin
             0 ≤ x[i=1:2] ≤ i, Int
             y ≥ 2, Bin

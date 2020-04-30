@@ -29,7 +29,7 @@ function JuMP.variable_by_name(m::PolyModel, sname::String)
     end
 end
 
-function JuMP.add_variable(model::PolyModel{CT, VT}, v::ScalarVariable, name::String="") where {CT, VT}
+function JuMP.add_variable(model::PolyModel{VT}, v::ScalarVariable, name::String="") where {VT}
     info = v.info
 
      @assert (!info.integer||(info.has_lb && info.has_ub)) "Only support integer constraints in combination with upper and lower bound."

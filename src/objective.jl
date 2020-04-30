@@ -12,8 +12,8 @@ function JuMP.set_objective_function(model::PolyModel, func::AbstractPolynomialL
     model.objective_function = func
 end
 
-function JuMP.set_objective_function(model::PolyModel{CT, VT}, func::Real) where {CT, VT}
-    set_objective_function(model, func*zero(polynomialtype(CT, VT)))
+function JuMP.set_objective_function(model::PolyModel{VT}, func::Real) where {VT}
+    set_objective_function(model, func*zero(polynomialtype(Float64, VT)))
 end
 
 function JuMP.set_objective(

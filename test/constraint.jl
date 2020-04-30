@@ -2,7 +2,7 @@ function test_constraint_name(constraint, name, F::Type, S::Type)
     @test name == @inferred JuMP.name(constraint)
 end
 
-function constraints_test(ModelType::Type{PolyModel{Float64, VT}}) where { VT}
+function constraints_test(ModelType::Type{PolyModel{VT}}) where { VT}
 
     @testset "SingleVariable constraints" begin
         m = ModelType()
@@ -191,9 +191,9 @@ function constraints_test(ModelType::Type{PolyModel{Float64, VT}}) where { VT}
    end
 
 @testset "Constraints for PolyModel" begin
-    constraints_test(PolyModel{Float64, PolyVar{true}})
+    constraints_test(PolyModel{PolyVar{true}})
     @testset "all_constraints (scalar)" begin
-        model = PolyModel{Float64, PolyVar{true}}()
+        model = PolyModel{PolyVar{true}}()
         @variable(model, x >= 0)
         @test 1 == num_constraints(model, polynomialtype(Float64, PolyVar{true}),
                                              MOI.GreaterThan{Float64})
@@ -202,7 +202,7 @@ function constraints_test(ModelType::Type{PolyModel{Float64, VT}}) where { VT}
      end
 
     @testset "list_of_constraint_types" begin
-        model = PolyModel{Float64, PolyVar{true}}()
+        model = PolyModel{PolyVar{true}}()
         @variable(model, x >= 0, Bin)
         @constraint(model, 2x <= 1)
         constraint_types = list_of_constraint_types(model)

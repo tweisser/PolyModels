@@ -17,7 +17,7 @@ export PolyModel
     PolyModel
 A model for a polynomial optimization problem.
 """
-mutable struct PolyModel{CT <: Number, VT <: MP.AbstractVariable} <: AbstractPolyModel
+mutable struct PolyModel{VT <: MP.AbstractVariable} <: AbstractPolyModel
     vct::Int
     variables::Dict{VT, Int}
     cct::Int
@@ -32,11 +32,11 @@ end
 
 Base.broadcastable(pm::PolyModel) = Ref(pm)
 
-function PolyModel{CT, VT}() where {CT <: Number, VT <: MP.AbstractVariable}
-    return PolyModel{CT, VT}(
+function PolyModel{VT}() where {VT <: MP.AbstractVariable}
+    return PolyModel{VT}(
                              0, Dict{VT, Int}(), 
                              0, AbstractString[], Dict{Int, Any}(),
-                             MOI.FEASIBILITY_SENSE, zero(polynomialtype(VT, CT)),
+                             MOI.FEASIBILITY_SENSE, zero(polynomialtype(VT, Float64)),
                              Dict{Symbol, Any}())
 end
 

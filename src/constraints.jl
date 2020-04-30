@@ -1,10 +1,10 @@
-index(cref::ConstraintRef{PolyModel{CT, VT}, MOI.ConstraintIndex{F, S}, <: JuMP.AbstractShape}) where{CT, VT, F, S} = cref.index.value
+index(cref::ConstraintRef{PolyModel{VT}, MOI.ConstraintIndex{F, S}, <: JuMP.AbstractShape}) where {VT, F, S} = cref.index.value
 
-function JuMP.name(con_ref::ConstraintRef{PolyModel{CT, VT}, MOI.ConstraintIndex{F, S}, <: JuMP.AbstractShape}) where{CT, VT, F, S}
+function JuMP.name(con_ref::ConstraintRef{PolyModel{VT}, MOI.ConstraintIndex{F, S}, <: JuMP.AbstractShape}) where{VT, F, S}
     return owner_model(con_ref).constraint_names[index(con_ref)]::String
 end
 
-function JuMP.set_name(con_ref::ConstraintRef{PolyModel{CT, VT}, MOI.ConstraintIndex{F, S}, <: JuMP.AbstractShape}, s::String) where{CT, VT, F, S}
+function JuMP.set_name(con_ref::ConstraintRef{PolyModel{VT}, MOI.ConstraintIndex{F, S}, <: JuMP.AbstractShape}, s::String) where{VT, F, S}
     idx = findall(x -> x == JuMP.name(con_ref), owner_model(con_ref).constraint_names)
     if length(idx) == 1
         delete!(object_dictionary(owner_model(con_ref)), Symbol(JuMP.name(con_ref)))
@@ -25,11 +25,11 @@ function JuMP.constraint_by_name(model::PolyModel, name::String)
     end
 end
 
-function JuMP.is_valid(model::PolyModel{CT, VT}, con_ref::ConstraintRef{PolyModel{CT, VT}, MOI.ConstraintIndex{F, S}, <: JuMP.AbstractShape}) where{CT, VT, F, S} 
+function JuMP.is_valid(model::PolyModel{VT}, con_ref::ConstraintRef{PolyModel{VT}, MOI.ConstraintIndex{F, S}, <: JuMP.AbstractShape}) where{VT, F, S} 
     return owner_model(con_ref) == model && haskey(model.constraints, index(con_ref))
 end
 
-function JuMP.delete(model::PolyModel{CT, VT}, con_ref::ConstraintRef{PolyModel{CT, VT}, MOI.ConstraintIndex{F, S}, <: JuMP.AbstractShape}) where{CT, VT, F, S} 
+function JuMP.delete(model::PolyModel{VT}, con_ref::ConstraintRef{PolyModel{VT}, MOI.ConstraintIndex{F, S}, <: JuMP.AbstractShape}) where{VT, F, S} 
     @assert is_valid(model, con_ref)
     idx = findall(x -> x == JuMP.name(con_ref), owner_model(con_ref).constraint_names)
     if length(idx) == 1
@@ -39,7 +39,7 @@ function JuMP.delete(model::PolyModel{CT, VT}, con_ref::ConstraintRef{PolyModel{
     delete!(model.constraints, index(con_ref))
     return nothing
 end
-function JuMP.delete(model::PolyModel{CT, VT}, con_ref::Vector{<:ConstraintRef{PolyModel{CT, VT}, MOI.ConstraintIndex{F, S}, <: JuMP.AbstractShape}}) where{CT, VT, F, S} 
+function JuMP.delete(model::PolyModel{VT}, con_ref::Vector{<:ConstraintRef{PolyModel{VT}, MOI.ConstraintIndex{F, S}, <: JuMP.AbstractShape}}) where{VT, F, S} 
     delete.(model, con_ref)
     return nothing
 end
@@ -68,7 +68,7 @@ JuMP.shape(con::PolynomialConstraint) = JuMP.ScalarShape()
 JuMP.shape(con::PolynomialVectorConstraint) = JuMP.VectorShape()
 
 
-function JuMP.constraint_object(cref::ConstraintRef{PolyModel{CT, VT}, MOI.ConstraintIndex{F, S}, <:Union{JuMP.ScalarShape, JuMP.VectorShape}}) where {CT, VT, F, S} 
+function JuMP.constraint_object(cref::ConstraintRef{PolyModel{VT}, MOI.ConstraintIndex{F, S}, <:Union{JuMP.ScalarShape, JuMP.VectorShape}}) where {VT, F, S} 
     return owner_model(cref).constraints[index(cref)]
 end
 

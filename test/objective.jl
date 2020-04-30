@@ -1,17 +1,17 @@
 
 @testset "Unsupported objective_function" begin
-    model = PolyModel{Float64, PolyVar{true}}()
+    model = PolyModel{PolyVar{true}}()
     func = MOI.SingleVariable(MOI.VariableIndex(1))
     @test_throws MethodError JuMP.set_objective_function(model, func)
 end
 
 @testset "Unsupported function in macro" begin
-    model = PolyModel{Float64, PolyVar{true}}()
+    model = PolyModel{PolyVar{true}}()
     @variable(model, x[1:2])
     @test_throws MethodError @objective(model, Min, x)
 end
 
-function objectives_test(ModelType::Type{PolyModel{CT, VT}}) where {CT, VT}
+function objectives_test(ModelType::Type{PolyModel{VT}}) where {VT}
                       
     @testset "objective_sense set and get" begin
         model = ModelType()
@@ -81,7 +81,7 @@ function objectives_test(ModelType::Type{PolyModel{CT, VT}}) where {CT, VT}
         model = ModelType()
         @objective(model, Min, 3)
         @test JuMP.objective_sense(model) == MOI.MIN_SENSE
-        @test JuMP.isequal_canonical(zero(polynomialtype(CT,VT)),
+        @test JuMP.isequal_canonical(zero(polynomialtype(Float64, VT)),
             JuMP.objective_function(model))
     end
 end
