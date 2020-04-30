@@ -10,6 +10,7 @@ function JuMP.set_name(con_ref::ConstraintRef{PolyModel{CT, VT}, MOI.ConstraintI
         delete!(object_dictionary(owner_model(con_ref)), Symbol(JuMP.name(con_ref)))
     end
     owner_model(con_ref).constraint_names[index(con_ref)] = s
+    object_dictionary(owner_model(con_ref))[Symbol(s)] = con_ref
     return nothing
 end
 
@@ -20,8 +21,7 @@ function JuMP.constraint_by_name(model::PolyModel, name::String)
     elseif length(idx) > 1
         throw(ErrorException("Multiple constraints have the name $name."))
     else
-        c = object_dictionary(model)[Symbol(name)]        
-        return ConstraintRef(model, first(idx), JuMP.shape(constraint_object(c)))
+        return object_dictionary(model)[Symbol(name)] 
     end
 end
 
@@ -72,7 +72,6 @@ function JuMP.constraint_object(cref::ConstraintRef{PolyModel{CT, VT}, MOI.Const
     return owner_model(cref).constraints[index(cref)]
 end
 
-
 function JuMP.function_string(mode, mc::AbstractPolynomialConstraint)
     return string(mc.func)
 end
@@ -81,12 +80,14 @@ function Base.show(io::IO, con::AbstractPolynomialConstraint)
     print(io, JuMP.constraint_string(JuMP.REPLMode, con))
 end
 
-function JuMP.build_constraint(_error::Function, ae::AbstractPolynomialLike, set::MOI.AbstractScalarSet)
-    return PolynomialConstraint(ae, set)
+function JuMP.add_constraint(model::PolyModel, bridgeable::BridgeableConstraint{<:VectorConstraint{<:Any, <:PolyJuMP.ZeroPolynomialSet, <:PolyJuMP.PolynomialShape }, <:Any}, name::String="") 
+    @assert all([isempty(expr.terms) for expr in bridgeable.constraint.func])
+    poly = polynomial(constant.(bridgeable.constraint.func), bridgeable.constraint.shape.monomials)
+    add_constraint(model, PolynomialConstraint(poly, MOI.EqualTo(0.0)), name) 
 end
 
-function JuMP.build_constraint(_error::Function, ae::Vector{<:AbstractPolynomialLike}, set::MOI.AbstractVectorSet)
-    return PolynomialVectorConstraint(ae, set)
+function JuMP.add_constraint(model::PolyModel, pjcon::PolyJuMP.Constraint{<:Any, <:Any, PolyJuMP.NonNegPoly}, name::String = "")
+    add_constraint(model, PolynomialConstraint(pjcon.polynomial_or_matrix, MOI.GreaterThan(0.0)), name) 
 end
 
 function JuMP.add_constraint(model::PolyModel, con::AbstractPolynomialConstraint, name::String="")
@@ -98,6 +99,7 @@ function JuMP.add_constraint(model::PolyModel, con::AbstractPolynomialConstraint
     push!(model.constraint_names, name)
     return cref
 end
+
 function JuMP.all_constraints(model::PolyModel)
     return [model.constraints[i] for i in sort!(collect(keys(model.constraints)))]
 end

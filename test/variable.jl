@@ -45,8 +45,8 @@ function test_variable_upper_bound_rhs(ModelType)
     @variable(model, ubrhs <= 1)
     
     # Has upper bound be encoded as constraint? 
-    @test jump_function(model.constraints[1]) == ubrhs - 1
-    @test moi_set(model.constraints[1]) == MOI.LessThan{Float64}(0.0) 
+    @test jump_function(model.constraints[1]) == -ubrhs + 1.0
+    @test moi_set(model.constraints[1]) == MOI.GreaterThan{Float64}(0.0) 
 
 end
 
@@ -55,8 +55,8 @@ function test_variable_upper_bound_lhs(ModelType)
     @variable(model, 1 >= ublhs)
     
     # Has upper bound be encoded as constraint? 
-    @test jump_function(model.constraints[1]) == ublhs - 1
-    @test moi_set(model.constraints[1]) == MOI.LessThan{Float64}(0.0) 
+    @test jump_function(model.constraints[1]) == -ublhs + 1.0
+    @test moi_set(model.constraints[1]) == MOI.GreaterThan{Float64}(0.0) 
 end
 
 function test_variable_interval(ModelType)
@@ -86,7 +86,7 @@ function test_variable_fix(ModelType)
     @variable(model, fixed == 1.0)
 
     # Has fixed be encoded as constraint? 
-    @test jump_function(model.constraints[1]) == fixed - 1
+    @test jump_function(model.constraints[1]) == fixed - 1.0
     @test moi_set(model.constraints[1]) == MOI.EqualTo{Float64}(0.0) 
 
 end

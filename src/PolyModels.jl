@@ -2,6 +2,8 @@ module PolyModels
 
 using Reexport
 @reexport using JuMP
+using PolyJuMP
+
 
 using MultivariatePolynomials
 const MP = MultivariatePolynomials

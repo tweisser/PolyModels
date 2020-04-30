@@ -2,43 +2,37 @@ function test_constraint_name(constraint, name, F::Type, S::Type)
     @test name == @inferred JuMP.name(constraint)
 end
 
-function constraints_test(ModelType::Type{PolyModel{CT, VT}}) where {CT, VT}
+function constraints_test(ModelType::Type{PolyModel{Float64, VT}}) where { VT}
 
     @testset "SingleVariable constraints" begin
         m = ModelType()
         @variable(m, x)
 
-        # x <= 10.0 doesn't translate to a SingleVariable constraint because
-        # the LHS is first subtracted to form x - 10.0 <= 0.
         @constraint(m, cref, x in MOI.LessThan(10.0))
         test_constraint_name(cref, "cref", VT,
-                             MOI.LessThan{Float64})
+                             MOI.GreaterThan{Float64})
         c = JuMP.constraint_object(cref)
-        @test c.func == x
-        @test c.set == MOI.LessThan(10.0)
+        @test c.func == -x + 10.0
+        @test c.set == MOI.GreaterThan(0.0)
 
         @variable(m, y[1:2])
         @constraint(m, cref2[i=1:2], y[i] in MOI.LessThan(float(i)))
         test_constraint_name(cref2[1], "cref2[1]", VT,
-                             MOI.LessThan{Float64})
+                             MOI.GreaterThan{Float64})
         c = JuMP.constraint_object(cref2[1])
-        @test c.func == y[1]
-        @test c.set == MOI.LessThan(1.0)
+        @test c.func == -y[1] + 1.0
+        @test c.set == MOI.GreaterThan(0.0)
     end
 
     @testset "VectorOfVariables constraints" begin
         m = ModelType()
         @variable(m, x[1:2])
 
-        cref = @constraint(m, x in MOI.Zeros(2))
-        c = JuMP.constraint_object(cref)
-        @test c.func == x
-        @test c.set == MOI.Zeros(2)
+        cref = @constraint(m, x .== 0)
+        c = JuMP.constraint_object.(cref)
+        @test c[1].func == x[1]
+        @test c[2].set == MOI.EqualTo(0.0)
 
-        cref = @constraint(m, [x[2],x[1]] in MOI.Zeros(2))
-        c = JuMP.constraint_object(cref)
-        @test c.func == [x[2],x[1]]
-        @test c.set == MOI.Zeros(2)
     end
 
     @testset "Linear constraints" begin
@@ -49,11 +43,11 @@ function constraints_test(ModelType::Type{PolyModel{CT, VT}}) where {CT, VT}
             cref = @constraint(model, 2x <= 10)
             @test "" == @inferred JuMP.name(cref)
             JuMP.set_name(cref, "c")
-            test_constraint_name(cref, "c", polynomialtype(CT, VT), MOI.LessThan{Float64})
+            test_constraint_name(cref, "c", polynomialtype(Float64, VT), MOI.GreaterThan{Float64})
 
             c = JuMP.constraint_object(cref)
-            @test JuMP.isequal_canonical(c.func, 2x - 10)
-            @test c.set == MOI.LessThan(0.0)
+            @test JuMP.isequal_canonical(c.func, -2*x + 10)
+            @test c.set == MOI.GreaterThan(0.0)
 
             cref = @constraint(model, 3x + 1 ≥ 10)
             c = JuMP.constraint_object(cref)
@@ -143,8 +137,8 @@ function constraints_test(ModelType::Type{PolyModel{CT, VT}}) where {CT, VT}
         for i in 1:2
             for j in 1:2
                 c = JuMP.constraint_object(cref[i,j])
-                @test JuMP.isequal_canonical(c.func, x[i,j] - UB[i,j] + 1)
-                @test c.set == MOI.LessThan(0.0)
+                @test JuMP.isequal_canonical(c.func, -x[i,j] + UB[i,j] - 1)
+                @test c.set == MOI.GreaterThan(0.0)
             end
         end
     end
@@ -171,8 +165,8 @@ function constraints_test(ModelType::Type{PolyModel{CT, VT}}) where {CT, VT}
 
         cref = @constraint(model, x^2 + x <= 1)
         c = JuMP.constraint_object(cref)
-        @test JuMP.isequal_canonical(c.func, x^2 + x -1)
-        @test c.set == MOI.LessThan(0.0)
+        @test JuMP.isequal_canonical(c.func, -x^2 - x  + 1)
+        @test c.set == MOI.GreaterThan(0.0)
 
         cref = @constraint(model, y*x - 1.0 == 0.0)
         c = JuMP.constraint_object(cref)
@@ -186,24 +180,11 @@ function constraints_test(ModelType::Type{PolyModel{CT, VT}}) where {CT, VT}
         model = ModelType()
         @variable(model, x)
         @constraint(model, con, x^2 == 1)
-        test_constraint_name(con, "con", polynomialtype(CT, VT), MOI.EqualTo{Float64})
+        test_constraint_name(con, "con", polynomialtype(Float64, VT), MOI.EqualTo{Float64})
         JuMP.set_name(con, "kon")
         @test JuMP.constraint_by_name(model, "con") isa Nothing
-        test_constraint_name(con, "kon", polynomialtype(CT, VT), MOI.EqualTo{Float64})
-        y = @constraint(model, kon, [x^2, x] in MOI.Zeros(2))
-        err(name) = ErrorException("Multiple constraints have the name $name.")
-        @test_throws err("kon") JuMP.constraint_by_name(model, "kon")
-        JuMP.set_name(kon, "con")
-        test_constraint_name(con, "kon", VT, MOI.EqualTo{Float64})
-        test_constraint_name(kon, "con", Vector{<:polynomialtype(CT, VT)},
-                             MOI.SecondOrderCone)
-        JuMP.set_name(con, "con")
-        @test_throws err("con") JuMP.constraint_by_name(model, "con")
-        @test JuMP.constraint_by_name(model, "kon") isa Nothing
-        JuMP.set_name(kon, "kon")
-        test_constraint_name(con, "con", polynomialtype(CT, VT), MOI.EqualTo{Float64})
-        test_constraint_name(kon, "kon", Vector{<:polynomialtype(CT, VT)},
-                             MOI.SecondOrderCone)
+        test_constraint_name(con, "kon", polynomialtype(Float64, VT), MOI.EqualTo{Float64})
+        @test_throws ErrorException  @constraint(model, kon, [x^2, x] .== 0 )
     end
 
 
@@ -214,10 +195,10 @@ function constraints_test(ModelType::Type{PolyModel{CT, VT}}) where {CT, VT}
     @testset "all_constraints (scalar)" begin
         model = PolyModel{Float64, PolyVar{true}}()
         @variable(model, x >= 0)
-        @test 1 == num_constraints(model, polynomialtype(Int, PolyVar{true}),
+        @test 1 == num_constraints(model, polynomialtype(Float64, PolyVar{true}),
                                              MOI.GreaterThan{Float64})
-        @test 0 ==  num_constraints(model, polynomialtype(Int, PolyVar{true}) ,
-                                             MOI.LessThan{Float64})
+        @test 0 ==  num_constraints(model, polynomialtype(Float64, PolyVar{true}) ,
+                                             MOI.EqualTo{Float64})
      end
 
     @testset "list_of_constraint_types" begin
@@ -226,8 +207,8 @@ function constraints_test(ModelType::Type{PolyModel{CT, VT}}) where {CT, VT}
         @constraint(model, 2x <= 1)
         constraint_types = list_of_constraint_types(model)
         @test Set(constraint_types) == Set([
-            (Polynomial{true,Int64}, MathOptInterface.EqualTo{Float64}),
-            (Polynomial{true,Int64}, MathOptInterface.LessThan{Float64})
+            (Polynomial{true, Float64}, MathOptInterface.EqualTo{Float64}),
+            (Polynomial{true, Float64}, MathOptInterface.GreaterThan{Float64})
                                            ])
     end
 end
