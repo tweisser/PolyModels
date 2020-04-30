@@ -44,18 +44,25 @@ function JuMP.delete(model::PolyModel{VT}, con_ref::Vector{<:ConstraintRef{PolyM
     return nothing
 end
 
-
 abstract type AbstractPolynomialConstraint <: JuMP.AbstractConstraint end
 
 struct PolynomialConstraint{FT <: AbstractPolynomialLike, ST <: MOI.AbstractScalarSet} <: AbstractPolynomialConstraint
     func::FT
     set::ST
+    function PolynomialConstraint(func, set)
+        PT = polynomialtype(Float64, MP.variable_union_type(func))
+        new{PT, typeof(set)}(convert(PT, func), set)
+    end
 end
 
 struct PolynomialVectorConstraint{F <: AbstractPolynomialLike,
                         S <: MOI.AbstractVectorSet} <: AbstractPolynomialConstraint
     func::Vector{F}
     set::S
+    function PolynomialConstraint(func, set)
+        PT = polynomialtype(Float64, MP.variable_union_type(func))
+        new{PT, typeof(set)}(convert.(PT, func), set)
+    end
 end
 
 JuMP.jump_function(con::AbstractPolynomialConstraint) = con.func
