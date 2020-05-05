@@ -115,7 +115,7 @@ function dense_feasible_set(model::PolyModel{VT}) where {VT}
     for eq in eqs
         set = intersect(set, @set eq == 0)
     end
-    return FeasibleSet(sort!(all_variables(model), rev = true), set)
+    return FeasibleSet(sort!(object.(all_variables(model)), rev = true), set)
 end
 
 function csp_feasible_set(model::PolyModel)
