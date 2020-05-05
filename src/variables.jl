@@ -85,6 +85,9 @@ Base.:*(p::MP.AbstractPolynomialLike, vref::PolyVariableRef) = prod(Base.promote
 Base.:*(vref::PolyVariableRef, p::Number) = prod(Base.promote_typeof(p, vref)[vref, p])
 Base.:*(vref::PolyVariableRef, p::MP.AbstractPolynomialLike) = prod(Base.promote_typeof(p, vref)[vref, p])
 
+MutableArithmetics.mutable_operate_to!(p::PT, ::typeof(*), a::Float64, v::PolyVariableRef{VT}) where {PT<:MP.AbstractPolynomialLike, VT<:MP.AbstractVariable} = MutableArithmetics.mutable_operate_to!(p, *, a, object(v))
+
+
 function JuMP.is_valid(model::PolyModel, vref::PolyVariableRef)
     return owner_model(vref) == model && haskey(owner_model(vref).variables, index(vref)) 
 end

@@ -7,6 +7,7 @@ using PolyJuMP
 
 using MultivariatePolynomials
 const MP = MultivariatePolynomials
+using MutableArithmetics
 
 abstract type AbstractPolyModel <: JuMP.AbstractModel end
 
