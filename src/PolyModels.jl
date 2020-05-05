@@ -60,7 +60,7 @@ include("print.jl")
 using SemialgebraicSets
 using SumOfSquares.Certificate.CEG
 
-export FeasibleSet, CSPFeasibleSet
+export FeasibleSet, FeasibleSetWithFix, CSPFeasibleSet
 export cliques, sets, set
 
 abstract type AbstractFeasibleSet end
@@ -70,10 +70,18 @@ struct FeasibleSet{VT, ST <:SemialgebraicSets.AbstractSemialgebraicSet} <: Abstr
     set::ST
 end
 
-MP.variables(fset::FeasibleSet) = fset.variables
-cliques(fset::FeasibleSet) = [variables(fset)]
-set(fset::FeasibleSet) = fset.set
-sets(fset::FeasibleSet) = [set(fset)]
+MP.variables(fset::AbstractFeasibleSet) = fset.variables
+cliques(fset::AbstractFeasibleSet) = [variables(fset)]
+set(fset::AbstractFeasibleSet) = fset.set
+sets(fset::AbstractFeasibleSet) = [set(fset)]
+
+struct FeasibleSetWithFix{VT, ST <: SemialgebraicSets.AbstractSemialgebraicSet, T <: Number} <:AbstractFeasibleSet
+    variables::Vector{VT}
+    set::ST
+    fixed_variables::Dict{VT, T}
+end
+
+fixed_variables(fset::FeasibleSetWithFix) = fset.fixed_variables
 
 struct CSPFeasibleSet{VT} <: AbstractFeasibleSet
     cliques::Vector{Vector{VT}}
@@ -117,6 +125,55 @@ function dense_feasible_set(model::PolyModel{VT}) where {VT}
     end
     return FeasibleSet(sort!(object.(all_variables(model)), rev = true), set)
 end
+
+function _single_variable(p::PT) where {PT <: MP. AbstractPolynomialLike}
+    if maxdegree(p) == 1 && length(effective_variables(p)) == 1
+        success = true
+        constant = first(coefficients(p))
+        pol = first(effective_variables(p))
+    else
+        success = false
+        constant = nothing
+        pol = p
+    end
+    return success, pol, constant
+end
+
+export feasible_set_with_fix
+function feasible_set_with_fix(model::PolyModel{VT}) where {VT}
+    eqs = polynomialtype(Float64, VT)[]
+    ineqs = polynomialtype(Float64, VT)[]
+    fixed = Dict{VT, Float64}()
+
+    for con in all_constraints(model)
+        if con.set isa MOI.EqualTo
+            s, p, c = _single_variable(jump_function(con))
+            if s
+                fixed[p] = MOI.constant(moi_set(con))/c
+            else
+                push!(eqs, con.func - MOI.constant(moi_set(con)))
+            end
+        elseif con.set isa MOI.GreaterThan
+            push!(ineqs, con.func - MOI.constant(moi_set(con)))
+        else
+            push!(ineqs, MOI.constant(moi_set(con)) - con.func)
+        end
+    end
+    for i in 1:length(ineqs)
+        ineqs[i] = subs(ineqs[i],  [k => v for (k,v) in fixed]...)
+    end
+    set = basicsemialgebraicset(FullSpace(), ineqs)
+    
+    for eq in eqs
+        set = intersect(set, @set subs(eq, [k => v for (k,v) in fixed]...)  == 0)
+    end
+    vars = setdiff(object.(all_variables(model)), collect(keys(fixed)))
+    @info object.(all_variables(model))
+    @info collect(keys(fixed))
+    return FeasibleSetWithFix(sort!(vars, rev = true), set, fixed)
+end
+
+
 
 function csp_feasible_set(model::PolyModel)
 
