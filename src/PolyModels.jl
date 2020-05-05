@@ -9,6 +9,8 @@ using MultivariatePolynomials
 const MP = MultivariatePolynomials
 using MutableArithmetics
 
+using LinearAlgebra
+
 abstract type AbstractPolyModel <: JuMP.AbstractModel end
 
 

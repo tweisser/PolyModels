@@ -48,6 +48,14 @@ JuMP.name(vref::PolyVariableRef) = MP.name(object(vref))
 Base.zero(::Type{PolyVariableRef{VT}}) where {VT <: MP.AbstractVariable} = zero(VT)
 Base.one(::Type{PolyVariableRef{VT}}) where {VT <: MP.AbstractVariable} = one(VT)
 
+Base.ndims(::Type{<:PolyVariableRef}) = 0
+LinearAlgebra.symmetric_type(::Type{T}) where T <: PolyVariableRef = T
+LinearAlgebra.symmetric(scalar::PolyVariableRef, ::Symbol) = scalar
+LinearAlgebra.adjoint(scalar::PolyVariableRef) = scalar
+Base.iterate(x::PolyVariableRef) = (x, true)
+Base.iterate(::PolyVariableRef, state) = nothing
+Base.isempty(::PolyVariableRef) = false
+
 function JuMP.VariableRef(model::PolyModel{VT}, x::VT) where {VT<:MP.AbstractVariable}
     lookup = Dict(val => key for (key, val) in model.variables)
     @assert haskey(lookup, x) "Polynomial variable $x is not registered in requested model."
@@ -169,7 +177,7 @@ function JuMP.set_lower_bound(v::PolyVariableRef, lower::Number)
         else 
             _delete_upper_bound(owner_model(v), index(v))
         end
-        _set_interval(owner_model(v), index(v), lower, upper)
+        _set_in_interval(owner_model(v), index(v), lower, upper)
     else
         _delete_lower_bound(owner_model(v), index(v))
         _set_lower_bound(owner_model(v), index(v), lower)
@@ -239,7 +247,7 @@ function JuMP.set_upper_bound(v::PolyVariableRef, upper::Number)
         else 
             _delete_lower_bound(owner_model(v), index(v))
         end
-        _set_interval(owner_model(v), index(v), lower, upper)
+        _set_in_interval(owner_model(v), index(v), lower, upper)
     else
         _delete_upper_bound(owner_model(v), index(v))
         _set_upper_bound(owner_model(v), index(v), upper)
