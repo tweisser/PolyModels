@@ -42,9 +42,9 @@ Base.copy(v::PolyVariableRef) = PolyVariableRef(owner_model(v), index(v))
 JuMP.isequal_canonical(v::PolyVariableRef, other::PolyVariableRef) = isequal(v, other)
 object(vref::PolyVariableRef) = owner_model(vref).variables[index(vref)]
 Base.isequal(vref1::PolyVariableRef, vref2::PolyVariableRef) = isequal(object(vref1), object(vref2))
-Base.show(io::IO, vref::PolyVariableRef) = show(io, object(vref))
 info(vref::PolyVariableRef) = owner_model(vref).variable_info[index(vref)]
 JuMP.name(vref::PolyVariableRef) = MP.name(object(vref))
+Base.show(io::IO, vref::PolyVariableRef) = show(io, JuMP.name(vref))
 Base.zero(::Type{PolyVariableRef{VT}}) where {VT <: MP.AbstractVariable} = zero(VT)
 Base.one(::Type{PolyVariableRef{VT}}) where {VT <: MP.AbstractVariable} = one(VT)
 
@@ -55,6 +55,11 @@ LinearAlgebra.adjoint(scalar::PolyVariableRef) = scalar
 Base.iterate(x::PolyVariableRef) = (x, true)
 Base.iterate(::PolyVariableRef, state) = nothing
 Base.isempty(::PolyVariableRef) = false
+Base.length(::PolyVariableRef) = 1
+function Base.getindex(vref::PolyVariableRef, i)
+    @assert i == 1
+    return vref
+end
 
 function JuMP.VariableRef(model::PolyModel{VT}, x::VT) where {VT<:MP.AbstractVariable}
     lookup = Dict(val => key for (key, val) in model.variables)
