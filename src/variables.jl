@@ -29,7 +29,7 @@ PolyVariableInfo() = PolyVariableInfo(
 
 
 export PolyVariableRef
-struct PolyVariableRef{VT <: MP.AbstractVariable}    
+struct PolyVariableRef{VT <: MP.AbstractVariable}
     model::PolyModel{VT}
     index::Int
 end
@@ -54,17 +54,14 @@ function JuMP.VariableRef(model::PolyModel{VT}, x::VT) where {VT<:MP.AbstractVar
     return PolyVariableRef(model, lookup[x])
 end
 
-function Base.promote_rule(::Type{T}, ::Type{PolyVariableRef{VT}}) where {T <: Union{Number, JuMP.AbstractJuMPScalar}, VT <: MP.AbstractVariable}
-    @info T
-    return MP.termtype(VT, T)
-end
+Base.promote_rule(::Type{T}, ::Type{PolyVariableRef{VT}}) where {T <: Union{Number, JuMP.AbstractJuMPScalar}, VT <:MP.AbstractVariable} = promote_type(T, VT)
+Base.promote_rule(::Type{PolyVariableRef{VT}}, ::Type{T}) where {T <: Union{Number, JuMP.AbstractJuMPScalar}, VT <:MP.AbstractVariable} = promote_type(T, VT)
 
-function Base.promote_rule(PT::Type{<:MP.AbstractPolynomialLike}, ::Type{<:PolyVariableRef}) 
-    @info PT
-    return PT
-end
 
-Base.convert(::Type{PT}, vref::PolyVariableRef) where {PT <: MP.AbstractPolynomialLike}  = convert(PT, object(vref))
+Base.promote_rule(::Type{PT}, ::Type{PolyVariableRef{VT}}) where {PT<:(MP.AbstractPolynomialLike{T} where T), VT <:MP.AbstractVariable} = promote_type(PT, VT)
+Base.promote_rule(::Type{PolyVariableRef{VT}}, ::Type{PT}) where {PT<:(MP.AbstractPolynomialLike{T} where T), VT <:MP.AbstractVariable} = promote_type(PT, VT)
+
+Base.convert(::Type{PT}, vref::PolyVariableRef) where {PT <: (MP.AbstractPolynomialLike{T} where T) }  = convert(PT, object(vref))
 
 # arithmetic operations with PolyVariableRefs return an MP.AbstractPolynomialLike
 Base.sum(vrefs::Vector{<:PolyVariableRef}) = sum(object.(vrefs))
@@ -74,7 +71,6 @@ Base.:-(vref::PolyVariableRef) = -object(vref)
 Base.:-(vref1::PolyVariableRef, vref2::PolyVariableRef) =  sum([vref1, -vref2])
 Base.:*(vref1::PolyVariableRef, vref2::PolyVariableRef) =  prod([vref1, vref2])
 Base.:^(vref::PolyVariableRef, e::Int) = object(vref)^e
-
 
 Base.:+(p::Number, vref::PolyVariableRef) = sum(Base.promote_typeof(p, vref)[p, vref])
 Base.:+(p::MP.AbstractPolynomialLike, vref::PolyVariableRef) = sum(Base.promote_typeof(p, vref)[p, vref])
@@ -105,7 +101,7 @@ function JuMP.delete(m::PolyModel, vref::PolyVariableRef)
     return nothing
 end
 
-function JuMP.delete(m::PolyModel, vref::Vector{PolyVariableRef})
+function JuMP.delete(m::PolyModel{VT}, vref::Vector{PolyVariableRef{VT}}) where {VT}
     for v in vref
         delete(m, v)
     end
@@ -563,7 +559,7 @@ function JuMP.add_variable(model::PolyModel{VT}, v::ScalarVariable, name::String
         pinfo.start_value = info.start
     end
 
-    return PolyVariableRef(model, model.vct)
+    return PolyVariableRef{variable_union_type(var)}(model, model.vct)
 end
 
 

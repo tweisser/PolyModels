@@ -147,13 +147,13 @@ function test_variable_oneto_index_set(ModelType::Type{PolyModel{VT}}) where {VT
     # Tests that Base.OneTo can be used in index set (JuMP issue #933).
     model = ModelType()
     auto_var = @variable(model, [Base.OneTo(3), 1:2], container=Auto)
-    @test auto_var isa Matrix{PolyVariableRef}
+    @test auto_var isa Matrix{PolyVariableRef{VT}}
     @test (3, 2) == @inferred size(auto_var)
     array_var = @variable(model, [Base.OneTo(3), 1:2], container=Array)
-    @test array_var isa Matrix{PolyVariableRef}
+    @test array_var isa Matrix{PolyVariableRef{VT}}
     @test (3, 2) == @inferred size(array_var)
     denseaxisarray_var = @variable(model, [Base.OneTo(3), 1:2], container=DenseAxisArray)
-    @test denseaxisarray_var isa JuMP.Containers.DenseAxisArray{PolyVariableRef}
+    @test denseaxisarray_var isa JuMP.Containers.DenseAxisArray{PolyVariableRef{VT}}
     @test length.(axes(denseaxisarray_var)) == (3, 2)
 end
 
@@ -218,10 +218,10 @@ function test_variable_condition_in_indexing(ModelType)
     test_two_dim(anon_two_dim)
 end
 
-function test_variable_macro_return_type(ModelType) 
+function test_variable_macro_return_type(ModelType::Type{PolyModel{VT}}) where {VT}
     model = ModelType()
     @variable(model, x[1:3, 1:4, 1:2])
-    @test typeof(x) == Array{PolyVariableRef,3}
+    @test typeof(x) == Array{PolyVariableRef{VT},3}
 end
 
 
