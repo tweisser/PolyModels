@@ -10,18 +10,18 @@ function constraints_test(ModelType::Type{PolyModel{VT}}) where { VT}
 
         @constraint(m, cref, x in MOI.LessThan(10.0))
         test_constraint_name(cref, "cref", VT,
-                             MOI.GreaterThan{Float64})
+                             MOI.LessThan{Float64})
         c = JuMP.constraint_object(cref)
-        @test c.func == -x + 10.0
-        @test c.set == MOI.GreaterThan(0.0)
+        @test c.func == PolyModels.object(x)
+        @test c.set == MOI.LessThan(10.0)
 
         @variable(m, y[1:2])
         @constraint(m, cref2[i=1:2], y[i] in MOI.LessThan(float(i)))
         test_constraint_name(cref2[1], "cref2[1]", VT,
-                             MOI.GreaterThan{Float64})
+                             MOI.LessThan{Float64})
         c = JuMP.constraint_object(cref2[1])
-        @test c.func == -y[1] + 1.0
-        @test c.set == MOI.GreaterThan(0.0)
+        @test c.func == PolyModels.object(y[1])
+        @test c.set == MOI.LessThan(1.0)
     end
 
     @testset "VectorOfVariables constraints" begin
@@ -30,7 +30,7 @@ function constraints_test(ModelType::Type{PolyModel{VT}}) where { VT}
 
         cref = @constraint(m, x .== 0)
         c = JuMP.constraint_object.(cref)
-        @test c[1].func == x[1]
+        @test c[1].func == PolyModels.object(x[1])
         @test c[2].set == MOI.EqualTo(0.0)
 
     end

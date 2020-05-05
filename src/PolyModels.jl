@@ -18,7 +18,8 @@ A model for a polynomial optimization problem.
 """
 mutable struct PolyModel{VT <: MP.AbstractVariable} <: AbstractPolyModel
     vct::Int
-    variables::Dict{VT, Int}
+    variables::Dict{Int, VT}
+    variable_info::Dict{Int, Any}
     cct::Int
     constraint_names::Vector{AbstractString}
     constraints::Dict{Int, JuMP.AbstractConstraint}
@@ -33,8 +34,8 @@ Base.broadcastable(pm::PolyModel) = Ref(pm)
 
 function PolyModel{VT}() where {VT <: MP.AbstractVariable}
     return PolyModel{VT}(
-                             0, Dict{VT, Int}(), 
-                             0, AbstractString[], Dict{Int, Any}(),
+                             0, Dict{VT, Int}(), Dict{Int, Any}(),
+                             0, AbstractString[], Dict{Int, JuMP.AbstractConstraint}(),
                              MOI.FEASIBILITY_SENSE, zero(polynomialtype(VT, Float64)),
                              Dict{Symbol, Any}())
 end
@@ -43,6 +44,7 @@ end
 JuMP.num_variables(model::PolyModel)::Int64 = length(model.variables)
 JuMP.object_dictionary(model::PolyModel) = model.obj_dict
 JuMP.termination_status(::PolyModel) = MOI.TerminationStatusCode(24)
+JuMP.backend(model::PolyModel) = model
 
 # additional JuMP function to use AbstractPolynomiallike
 JuMP.isequal_canonical(p1::AbstractPolynomialLike, p2::AbstractPolynomialLike) = p1 == p2

@@ -8,7 +8,7 @@ end
 
 
 function JuMP.set_objective_function(model::PolyModel, func::AbstractPolynomialLike)
-    @assert all([haskey(model.variables, var) for var in variables(func)]) "At least one polynomial variable is not registered in the model."
+     @assert all(is_valid.(model, variables(func))) "At least one polynomial variable is not registered in the model."
     model.objective_function = func
 end
 

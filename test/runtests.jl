@@ -6,7 +6,7 @@ using Revise
 
 using PolyModels
 
-include("model.jl")
-include("variable.jl")
+#include("model.jl")
+#include("variable.jl")
 include("constraint.jl")
 include("objective.jl")

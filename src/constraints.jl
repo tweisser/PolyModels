@@ -44,6 +44,8 @@ function JuMP.delete(model::PolyModel{VT}, con_ref::Vector{<:ConstraintRef{PolyM
     return nothing
 end
 
+function JuMP.delete(::PolyModel, ::Nothing) end
+
 abstract type AbstractPolynomialConstraint <: JuMP.AbstractConstraint end
 
 struct PolynomialConstraint{FT <: AbstractPolynomialLike, ST <: MOI.AbstractScalarSet} <: AbstractPolynomialConstraint
@@ -98,7 +100,8 @@ function JuMP.add_constraint(model::PolyModel, pjcon::PolyJuMP.Constraint{<:Any,
 end
 
 function JuMP.add_constraint(model::PolyModel, con::AbstractPolynomialConstraint, name::String="")
-    @assert all([haskey(model.variables, var) for var in variables(jump_function(con))]) "At least one polynomial variable is not registered in the model."
+
+    @assert all(is_valid.(model, variables(jump_function(con)))) "At least one polynomial variable is not registered in the model."
     model.cct += 1
     cindex = MOI.ConstraintIndex{typeof(jump_function(con)), typeof(moi_set(con))}(model.cct)
     cref = ConstraintRef(model, cindex, shape(con))

@@ -3,9 +3,9 @@
 function test_variable_no_bound(ModelType::Type{PolyModel{VT}}) where {VT}
     model = ModelType()
     @variable(model, nobounds)
-    @test nobounds isa VT
-    @test zero(nobounds) isa polynomialtype(nobounds)
-    @test one(nobounds) isa monomialtype(nobounds)
+    @test nobounds isa PolyVariableRef
+    @test zero(PolyModels.object(nobounds)) isa polynomialtype(VT, Int)
+    @test one(PolyModels.object(nobounds)) isa monomialtype(VT)
     @test_throws ErrorException @variable(model, nobounds)
 end
 
@@ -18,16 +18,15 @@ function test_variable_binary_plus_x(ModelType)
     # Has binary constraint be encoded as constraint? 
     @test jump_function(model.constraints[1]) == -lbonly^2 + lbonly
     @test moi_set(model.constraints[1]) == MOI.EqualTo{Float64}(0.0)
-
     @test_throws ErrorException @variable(model, lbonly)
 
 end
 function test_variable_lower_bound_rhs(ModelType)
     model = ModelType()
-    @variable(model, lblhs >= 0)
+    @variable(model, lbrhs >= 0)
 
     # Has lower bound be encoded as constraint? 
-    @test jump_function(model.constraints[1]) == lblhs
+    @test jump_function(model.constraints[1]) == PolyModels.object(lbrhs)
     @test moi_set(model.constraints[1]) == MOI.GreaterThan{Float64}(0.0)
 end
 
@@ -36,7 +35,7 @@ function test_variable_lower_bound_lhs(ModelType)
     @variable(model, 0 <= lblhs)
 
     # Has lower bound be encoded as constraint? 
-    @test jump_function(model.constraints[1]) == lblhs
+    @test jump_function(model.constraints[1]) == PolyModels.object(lblhs)
     @test moi_set(model.constraints[1]) == MOI.GreaterThan{Float64}(0.0) 
 end
 
@@ -109,15 +108,16 @@ end
 
 function test_variable_start(ModelType)
     model = ModelType()
-    info = VariableInfo(false, NaN, false, NaN, false, NaN, true, 1.0, false, false)
-    @test_logs (:warn, "Start value not supported. Information has been lost.") JuMP.add_variable(model, JuMP.build_variable(x -> "", info), "x")
+    @variable model x == 1.0
+    @test is_fixed(x)
+    @test fix_value(x) == 1.0
 end
 
 function test_variable_custom_index_sets(ModelType)
     model = ModelType()
     @variable(model, 0 <= onerangeub[-7:1] <= 10, Int)
     @variable(model, manyrangelb[0:1, 10:20, 1:1] >= 2)
-    @test jump_function(model.constraints[20]) == manyrangelb[0, 15, 1] - 2
+    @test jump_function(model.constraints[20]) == manyrangelb[0, 15, 1] - 2.0
     @test moi_set(model.constraints[20]) == MOI.GreaterThan{Float64}(0.0)
     s = ["Green","Blue"]
     @variable(model, x[i=-10:10, s] <= 5.5)
@@ -129,8 +129,8 @@ function test_variable_anonymous(ModelType)
     model = ModelType()
     @test_throws ErrorException @variable(model, [(0, 0)])  # #922
     x = @variable(model, [(0, 2)])
-    @test "noname" == @inferred MultivariatePolynomials.name(x[0])
-    @test "noname" == @inferred MultivariatePolynomials.name(x[2])
+    @test "noname" == @inferred JuMP.name(x[0])
+    @test "noname" == @inferred JuMP.name(x[2])
 end
 
 function test_variable_is_valid_delete(ModelType)
@@ -147,26 +147,26 @@ function test_variable_oneto_index_set(ModelType::Type{PolyModel{VT}}) where {VT
     # Tests that Base.OneTo can be used in index set (JuMP issue #933).
     model = ModelType()
     auto_var = @variable(model, [Base.OneTo(3), 1:2], container=Auto)
-    @test auto_var isa Matrix{VT}
+    @test auto_var isa Matrix{PolyVariableRef}
     @test (3, 2) == @inferred size(auto_var)
     array_var = @variable(model, [Base.OneTo(3), 1:2], container=Array)
-    @test array_var isa Matrix{VT}
+    @test array_var isa Matrix{PolyVariableRef}
     @test (3, 2) == @inferred size(array_var)
     denseaxisarray_var = @variable(model, [Base.OneTo(3), 1:2], container=DenseAxisArray)
-    @test denseaxisarray_var isa JuMP.Containers.DenseAxisArray{VT}
+    @test denseaxisarray_var isa JuMP.Containers.DenseAxisArray{PolyVariableRef}
     @test length.(axes(denseaxisarray_var)) == (3, 2)
 end
 
 function test_variable_base_name_in_macro(ModelType)
     model = ModelType()
     @variable(model, normal_var)
-    @test MultivariatePolynomials.name(normal_var) == "normal_var"
+    @test JuMP.name(normal_var) == "normal_var"
     no_indices = @variable(model, base_name="foo")
-    @test MultivariatePolynomials.name(no_indices) == "foo"
+    @test JuMP.name(no_indices) == "foo"
     # Note that `z` will be ignored in name.
     indices = @variable(model, z[i=2:3], base_name="t")
-    @test MultivariatePolynomials.name(indices[2]) == "t[2]"
-    @test MultivariatePolynomials.name(indices[3]) == "t[3]"
+    @test JuMP.name(indices[2]) == "t[2]"
+    @test JuMP.name(indices[3]) == "t[3]"
 end
 
 function test_variable_name(ModelType)
@@ -218,10 +218,10 @@ function test_variable_condition_in_indexing(ModelType)
     test_two_dim(anon_two_dim)
 end
 
-function test_variable_macro_return_type(ModelType::Type{PolyModel{VT}}) where {VT}
+function test_variable_macro_return_type(ModelType) 
     model = ModelType()
     @variable(model, x[1:3, 1:4, 1:2])
-    @test typeof(x) == Array{VT,3}
+    @test typeof(x) == Array{PolyVariableRef,3}
 end
 
 
