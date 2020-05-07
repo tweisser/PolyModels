@@ -1,126 +1,396 @@
 #tests adapted from JuMP/test/variable.jl 
 
+function test_variable_name(variable, name)
+    @test name == JuMP.name(variable)
+    @test variable == JuMP.variable_by_name(JuMP.owner_model(variable), name)
+end
+
 function test_variable_no_bound(ModelType::Type{PolyModel{VT}}) where {VT}
     model = ModelType()
     @variable(model, nobounds)
     @test nobounds isa PolyVariableRef
-    @test zero(PolyModels.object(nobounds)) isa polynomialtype(VT, Int)
-    @test one(PolyModels.object(nobounds)) isa monomialtype(VT)
+    @test !JuMP.has_lower_bound(nobounds)
+    @test !JuMP.has_upper_bound(nobounds)
+    @test !JuMP.is_fixed(nobounds)
+    @test !JuMP.is_binary(nobounds)
+    @test !JuMP.is_integer(nobounds)
+    test_variable_name(nobounds, "nobounds")
+    @test zero(nobounds) isa polynomialtype(VT, Int)
+    @test one(nobounds) isa monomialtype(VT)
     @test_throws ErrorException @variable(model, nobounds)
 end
 
-function test_variable_binary_plus_x(ModelType)
+function test_variable_name(ModelType)
     model = ModelType()
-    @variable(model, lbonly >= 0, Bin)
-    
-    # Has the lower bound be ignored because Bin includes this information?
-    @test length(model.constraints) == 1
-    # Has binary constraint be encoded as constraint? 
-    @test jump_function(model.constraints[1]) == -lbonly^2 + lbonly
-    @test moi_set(model.constraints[1]) == MOI.EqualTo{Float64}(0.0)
-    @test_throws ErrorException @variable(model, lbonly)
-
+    @variable(model, x)
+    test_variable_name(x, "x")
+    JuMP.set_name(x, "y")
+    @test JuMP.variable_by_name(model, "x") isa Nothing
+    test_variable_name(x, "y")
+    y = @variable(model, base_name="y")
+    err(name) = ErrorException("Multiple variables have the name $name.")
+    @test_throws err("y") JuMP.variable_by_name(model, "y")
+    JuMP.set_name(y, "x")
+    test_variable_name(x, "y")
+    test_variable_name(y, "x")
+    JuMP.set_name(x, "x")
+    @test_throws err("x") JuMP.variable_by_name(model, "x")
+    @test JuMP.variable_by_name(model, "y") isa Nothing
+    JuMP.set_name(y, "y")
+    test_variable_name(x, "x")
+    test_variable_name(y, "y")   
 end
+
+function test_constraint(cref, jumpfunction, moiset)
+    @test jump_function(constraint_object(cref)) == jumpfunction
+    @test moi_set(constraint_object(cref)) == moiset  
+end
+
 function test_variable_lower_bound_rhs(ModelType)
     model = ModelType()
     @variable(model, lbrhs >= 0)
 
-    # Has lower bound be encoded as constraint? 
-    @test jump_function(model.constraints[1]) == PolyModels.object(lbrhs)
-    @test moi_set(model.constraints[1]) == MOI.GreaterThan{Float64}(0.0)
+    @test JuMP.has_lower_bound(lbrhs)
+    @test JuMP.lower_bound(lbrhs) == 0.0
+    test_constraint(JuMP.LowerBoundRef(lbrhs), PolyModels.object(lbrhs), MOI.GreaterThan(0.0))
+
+    @test !JuMP.has_upper_bound(lbrhs)
+    @test !JuMP.is_fixed(lbrhs)
+    @test !JuMP.is_binary(lbrhs)
+    @test !JuMP.is_integer(lbrhs)
+    
+    @test isequal(model[:lbrhs], lbrhs)
+    JuMP.delete_lower_bound(lbrhs)
+    @test !JuMP.has_lower_bound(lbrhs)
+    @test isempty(all_constraints(model))
+    @test length(all_variables(model)) == 1
 end
 
 function test_variable_lower_bound_lhs(ModelType)
     model = ModelType()
     @variable(model, 0 <= lblhs)
-
-    # Has lower bound be encoded as constraint? 
-    @test jump_function(model.constraints[1]) == PolyModels.object(lblhs)
-    @test moi_set(model.constraints[1]) == MOI.GreaterThan{Float64}(0.0) 
+    
+    @test JuMP.has_lower_bound(lblhs)
+    @test 0.0 == JuMP.lower_bound(lblhs)
+    test_constraint(JuMP.LowerBoundRef(lblhs), PolyModels.object(lblhs), MOI.GreaterThan(0.0))
+   
+    @test !JuMP.has_upper_bound(lblhs)
+    @test !JuMP.is_fixed(lblhs)
+    @test !JuMP.is_binary(lblhs)
+    @test !JuMP.is_integer(lblhs)
 end
 
 function test_variable_upper_bound_rhs(ModelType)
     model = ModelType()
     @variable(model, ubrhs <= 1)
-    
-    # Has upper bound be encoded as constraint? 
-    @test jump_function(model.constraints[1]) == -ubrhs + 1.0
-    @test moi_set(model.constraints[1]) == MOI.GreaterThan{Float64}(0.0) 
 
+    @test JuMP.has_upper_bound(ubrhs)
+    @test 1.0 == JuMP.upper_bound(ubrhs)
+    test_constraint(JuMP.UpperBoundRef(ubrhs), -ubrhs + 1.0, MOI.GreaterThan(0.0))
+    
+    @test !JuMP.has_lower_bound(ubrhs)
+    @test !JuMP.is_fixed(ubrhs)
+    @test !JuMP.is_binary(ubrhs)
+    @test !JuMP.is_integer(ubrhs)
+
+    @test isequal(model[:ubrhs], ubrhs)
+    JuMP.delete_upper_bound(ubrhs)
+    @test !JuMP.has_upper_bound(ubrhs)
+    @test isempty(all_constraints(model))
+    @test length(all_variables(model)) == 1
 end
 
 function test_variable_upper_bound_lhs(ModelType)
     model = ModelType()
     @variable(model, 1 >= ublhs)
     
-    # Has upper bound be encoded as constraint? 
-    @test jump_function(model.constraints[1]) == -ublhs + 1.0
-    @test moi_set(model.constraints[1]) == MOI.GreaterThan{Float64}(0.0) 
+    @test JuMP.has_upper_bound(ublhs)
+    @test 1.0 == JuMP.upper_bound(ublhs)
+    test_constraint(JuMP.UpperBoundRef(ublhs), -ublhs + 1.0, MOI.GreaterThan(0.0))
+
+    @test !JuMP.has_lower_bound(ublhs)
+    @test !JuMP.is_fixed(ublhs)
+    @test !JuMP.is_binary(ublhs)
+    @test !JuMP.is_integer(ublhs) 
 end
 
 function test_variable_interval(ModelType)
-    function has_bounds(model, idx, var, lb, ub)
-        con = model.constraints[idx] 
-        @test jump_function(con) == (var - lb)*(ub - var)
-        @test moi_set(con) == MOI.GreaterThan{Float64}(0.0) 
+    function has_bounds(var, lb, ub)
+        @test PolyModels.in_interval(var)
+        @test JuMP.has_lower_bound(var)
+        @test lb == JuMP.lower_bound(var)
+        @test JuMP.has_upper_bound(var)
+        @test ub == JuMP.upper_bound(var)
+
+        test_constraint(IntervalRef(var), (var - lb)*(ub - var), MOI.GreaterThan(0.0))
+
+        @test !JuMP.is_fixed(var)
+        @test !JuMP.is_binary(var)
+        @test !JuMP.is_integer(var) 
     end
+
     model = ModelType()
-    ct = 0
     @variable(model, 0 <= bothb1 <= 1)
-    ct += 1
-    has_bounds(model, ct, bothb1, 0.0, 1.0)
+    has_bounds(bothb1, 0.0, 1.0)
     @variable(model, 0 ≤  bothb2 ≤  1)
-    ct += 1
-    has_bounds(model, ct, bothb2, 0.0, 1.0)    
+    has_bounds(bothb2, 0.0, 1.0)    
     @variable(model, 1 >= bothb3 >= 0)
-    ct += 1
-    has_bounds(model, ct, bothb3, 0.0, 1.0)
+    has_bounds(bothb3, 0.0, 1.0)
     @variable(model, 1 ≥  bothb4 ≥  0)
-    ct += 1
-    has_bounds(model, ct, bothb4, 0.0, 1.0)
+    has_bounds(bothb4, 0.0, 1.0)
+
+    delete_in_interval(bothb4)
+    @test !PolyModels.in_interval(bothb4)
+    @test length(all_constraints(model)) == 3
+    @test length(all_variables(model)) == 4
+
+end
+
+function test_variable_interval_delete_upper(ModelType)
+    model = ModelType()
+    @variable(model, 0 <= both <= 1)
+
+    @test length(all_constraints(model)) == 1
+
+    JuMP.delete_upper_bound(both)
+    @test !has_upper_bound(both)
+    @test has_lower_bound(both)
+    @test !PolyModels.in_interval(both)
+
+    test_constraint(JuMP.LowerBoundRef(both), PolyModels.object(both), MOI.GreaterThan(0.0))
+end
+
+function test_variable_interval_delete_lower(ModelType)
+    model = ModelType()
+    @variable(model, 0 <= both <= 1)
+
+    @test length(all_constraints(model)) == 1
+
+    JuMP.delete_lower_bound(both)
+    @test has_upper_bound(both)
+    @test !has_lower_bound(both)
+    @test !PolyModels.in_interval(both)
+
+    test_constraint(JuMP.UpperBoundRef(both), -PolyModels.object(both) + 1, MOI.GreaterThan(0.0))
 end
 
 function test_variable_fix(ModelType)
     model = ModelType()
     @variable(model, fixed == 1.0)
+    @test is_fixed(fixed)
+    @test JuMP.fix_value(fixed) == 1.0
+    test_constraint(JuMP.FixRef(fixed), fixed - 1.0, MOI.EqualTo(0.0))
+    
+    @test !JuMP.has_lower_bound(fixed)
+    @test !JuMP.has_upper_bound(fixed)
+    @test !JuMP.is_binary(fixed)
+    @test !JuMP.is_integer(fixed)
 
-    # Has fixed be encoded as constraint? 
-    @test jump_function(model.constraints[1]) == fixed - 1.0
-    @test moi_set(model.constraints[1]) == MOI.EqualTo{Float64}(0.0) 
+    unfix(fixed)
+    @test !is_fixed(fixed)
+    @test isempty(all_constraints(model))
+    @test length(all_variables(model)) == 1
 
+    JuMP.set_lower_bound(fixed, 0.0)
+    @test_throws Exception JuMP.fix(fixed, 1.0)
+    JuMP.fix(fixed, 1.0; force = true)
+    @test !JuMP.has_lower_bound(fixed)
+    @test !JuMP.has_upper_bound(fixed)
+    @test JuMP.is_fixed(fixed)
+    @test 1.0 ==  JuMP.fix_value(fixed)
 end
 
-function test_variable_int(ModelType)
+function test_variable_binary(ModelType)
+    model = ModelType()
+    @variable(model, bin, Bin)
+    @test is_binary(bin)
+    test_constraint(JuMP.BinaryRef(bin), bin*(1-bin), MOI.EqualTo(0.0))
+    
+    @test !JuMP.has_lower_bound(bin)
+    @test !JuMP.has_upper_bound(bin)
+    @test !JuMP.is_fixed(bin)
+    @test !JuMP.is_integer(bin)
+
+    unset_binary(bin)
+    @test !is_binary(bin)
+    @test isempty(all_constraints(model))
+    @test length(all_variables(model)) == 1
+end
+
+function test_variable_integer(ModelType)
     model = ModelType()
     @variable model int1 lower_bound = 1 upper_bound = 3 Int
-    @test jump_function(model.constraints[1]) == (int1-1)*(int1-2)*(int1-3)
-    @test moi_set(model.constraints[1]) == MOI.EqualTo{Float64}(0.0) 
-    
+
+    @test is_integer(int1)
+    test_constraint(JuMP.IntegerRef(int1), (int1-1)*(int1-2)*(int1-3), MOI.EqualTo(0.0))
+
     @variable model int2 lower_bound = 0.9 upper_bound = 3.1 Int
-    @test jump_function(model.constraints[2]) == (int2-1)*(int2-2)*(int2-3)
+    @test is_integer(int2)
+    test_constraint(JuMP.IntegerRef(int2), (int2-1)*(int2-2)*(int2-3), MOI.EqualTo(0.0))
 
     @test_throws AssertionError @variable(model, int3, Int)
     @test_throws AssertionError @variable(model, int3, Int, lower_bound = 0)
     @test_throws AssertionError @variable(model, int3, Int, upper_bound = 7)
 
     @test length(model.variables) == 2
+
+    unset_integer(int1)
+    @test !is_integer(int1)
+    @test in_interval(int1)
+    test_constraint(IntervalRef(int1), (int1 - 1)*(3 - int1), MOI.GreaterThan(0.0))
+    
+    unset_integer(int2)
+    @test !is_integer(int2)
+    @test in_interval(int2)
+    test_constraint(IntervalRef(int2), (int2 - 0.9)*(3.1 - int2), MOI.GreaterThan(0.0))
 end
 
-function test_variable_start(ModelType)
+
+function test_variable_starts_set_get(ModelType)
     model = ModelType()
-    @variable model x == 1.0
-    @test is_fixed(x)
-    @test fix_value(x) == 1.0
+    @variable(model, y, start = 1.0)
+    @test start_value(y) == 1.0
+
+    @variable(model, x[1:3])
+    x0 = collect(1:3)
+    JuMP.set_start_value.(x, x0)
+    @test start_value.(x) == x0
+    @test JuMP.start_value.([x[1],x[2],x[3]]) == x0
+end
+
+function test_variable_bounds_set_get(ModelType)
+    model = ModelType()
+    @variable(model, 0 <= x <= 2)
+    @test 0 == JuMP.lower_bound(x)
+    @test 2 == JuMP.upper_bound(x)
+    @test_throws Exception LowerBoundRef(x)
+    @test_throws Exception UpperBoundRef(x)
+    @test length(all_constraints(model)) == 1
+
+    set_lower_bound(x, 1)
+    @test 1 == JuMP.lower_bound(x)
+    @test_throws Exception LowerBoundRef(x)
+    @test_throws Exception UpperBoundRef(x)
+    test_constraint(IntervalRef(x), (x-1)*(2-x), MOI.GreaterThan(0.0))
+    @test length(all_constraints(model)) == 1
+
+    set_upper_bound(x, 3)
+    @test 3 == JuMP.upper_bound(x)
+    test_constraint(IntervalRef(x), (x-1)*(3-x), MOI.GreaterThan(0.0))
+    @test length(all_constraints(model)) == 1
+end
+
+function test_variable_fixed_set_get(ModelType)
+    model = ModelType()
+    @variable(model, fixedvar == 2)
+    @test 2.0 == JuMP.fix_value(fixedvar)
+    test_constraint(FixRef(fixedvar), fixedvar - 2, MOI.EqualTo(0.0))
+    
+    JuMP.fix(fixedvar, 5)
+    @test 5 == JuMP.fix_value(fixedvar)
+    test_constraint(FixRef(fixedvar), fixedvar - 5, MOI.EqualTo(0.0))
+    
+    @test_throws Exception JuMP.lower_bound(fixedvar)
+    @test_throws Exception JuMP.upper_bound(fixedvar)
+
+end
+
+function test_variable_binary_set_get(ModelType)
+    model = ModelType()
+    @variable(model, q, Bin)
+    @test !JuMP.has_lower_bound(q)
+    @test !JuMP.has_upper_bound(q)
+    @test !in_interval(q)
+
+    test_constraint(BinaryRef(q), q*(1-q), MOI.EqualTo(0.0))
+    
+    set_lower_bound(q, 1)
+    @test length(all_constraints(model)) == 2
+    @test JuMP.has_lower_bound(q)
+
+    set_upper_bound(q, 1)
+    @test length(all_constraints(model)) == 2
+    @test in_interval(q)
+
+    @variable(model, 0 <= y <= 2, Bin)
+    @test 0 == JuMP.lower_bound(y)
+    @test 2 == JuMP.upper_bound(y)
+    @test is_binary(y)
+
+
+
+
+
+end
+
+
+function test_variable_integrality_set_get(ModelType)
+    model = ModelType()
+    @variable(model, x[1:3])
+
+    # Unlike than in JuMP.Model for PolyModel integrality constraints can only be formulated in combination with lower and upper bounds. 
+    @test_throws AssertionError JuMP.set_integer(x[2])
+    @test !JuMP.is_integer(x[2])
+    
+    set_lower_bound(x[2], 0)
+    set_upper_bound(x[2], 2)
+
+    set_integer(x[2])
+    @test JuMP.is_integer(x[2])
+    @test has_lower_bound(x[2])
+    @test has_upper_bound(x[2])
+    @test lower_bound(x[2]) == 0
+    @test upper_bound(x[2]) == 2
+    @test length(all_constraints(model)) == 1
+
+
+    set_integer(x[2]) # second call does not add new constraints
+    @test length(all_constraints(model)) == 1
+
+    set_upper_bound(x[2], 3) # should change integrality constraint and instead of introducing a new constraint.
+    @test length(all_constraints(model)) == 1    
+    @test JuMP.is_integer(x[2])    
+    test_constraint(IntegerRef(x[2]), x[2]*(x[2]-1)*(x[2]-2)*(x[2]-3), MOI.EqualTo(0.0))
+   
+    set_lower_bound(x[2], 1) # should change integrality constraint and instead of introducing a new constraint.
+    @test length(all_constraints(model)) == 1
+    @test JuMP.is_integer(x[2])    
+    test_constraint(IntegerRef(x[2]), (x[2]-1)*(x[2]-2)*(x[2]-3), MOI.EqualTo(0.0))
+
+    set_in_interval(x[2], 0, 2)
+    @test length(all_constraints(model)) == 1
+    @test JuMP.is_integer(x[2])
+    test_constraint(IntegerRef(x[2]), x[2]*(x[2]-1)*(x[2]-2), MOI.EqualTo(0.0))
+
+    JuMP.unset_integer(x[2])
+    @test !JuMP.is_integer(x[2])
+
+    JuMP.set_binary(x[1])
+    JuMP.set_binary(x[1])  # test duplicated call
+    @test JuMP.is_binary(x[1])
+    @test_throws Exception JuMP.set_integer(x[1])
+    JuMP.unset_binary(x[1])
+    @test !JuMP.is_binary(x[1])
+
+    @variable(model, y, binary = true)
+    @test JuMP.is_binary(y)
+    @test_throws Exception JuMP.set_integer(y)
+    JuMP.unset_binary(y)
+    @test !JuMP.is_binary(y)
+
 end
 
 function test_variable_custom_index_sets(ModelType)
     model = ModelType()
     @variable(model, 0 <= onerangeub[-7:1] <= 10, Int)
     @variable(model, manyrangelb[0:1, 10:20, 1:1] >= 2)
-    @test jump_function(model.constraints[20]) == manyrangelb[0, 15, 1] - 2.0
-    @test moi_set(model.constraints[20]) == MOI.GreaterThan{Float64}(0.0)
+    @test has_lower_bound(manyrangelb[0, 15, 1]) 
+    test_constraint(LowerBoundRef(manyrangelb[0, 15, 1]), manyrangelb[0, 15, 1] - 2.0, MOI.GreaterThan(0.0))
     s = ["Green","Blue"]
-    @variable(model, x[i=-10:10, s] <= 5.5)
+    @variable(model, x[i=-10:10, s] <= 5.5, start=i+1)
+    @test 5.5 ==  JuMP.upper_bound(x[-4, "Green"])
+    test_variable_name(x[-10, "Green"], "x[-10,Green]")
+    @test JuMP.start_value(x[-3, "Blue"]) == -2
     @test isequal(model[:onerangeub][-7], onerangeub[-7])
     @test_throws KeyError model[:foo]
 end
@@ -129,8 +399,8 @@ function test_variable_anonymous(ModelType)
     model = ModelType()
     @test_throws ErrorException @variable(model, [(0, 0)])  # #922
     x = @variable(model, [(0, 2)])
-    @test "noname" == @inferred JuMP.name(x[0])
-    @test "noname" == @inferred JuMP.name(x[2])
+    @test "noname" == JuMP.name(x[0])
+    @test "noname" == JuMP.name(x[2])
 end
 
 function test_variable_is_valid_delete(ModelType)
@@ -169,16 +439,6 @@ function test_variable_base_name_in_macro(ModelType)
     @test JuMP.name(indices[3]) == "t[3]"
 end
 
-function test_variable_name(ModelType)
-    model = ModelType()
-    @variable(model, x)
-    @test_throws MethodError set_name(x, "y")
-    @test JuMP.variable_by_name(model, "x") == x
-    y = @variable(model, base_name="x")
-    err(name) = ErrorException("Multiple variables have the name $name.")
-    @test JuMP.variable_by_name(model, "y") isa Nothing
-    @test_throws err("x") JuMP.variable_by_name(model, "x")
-end
 
 function test_variable_condition_in_indexing(ModelType)
     function test_one_dim(x)
@@ -224,7 +484,6 @@ function test_variable_macro_return_type(ModelType::Type{PolyModel{VT}}) where {
     @test typeof(x) == Array{PolyVariableRef{VT},3}
 end
 
-
 function test_variable_end_indexing(ModelType)
     model = ModelType()
     @variable(model, x[0:2, 1:4])
@@ -256,19 +515,27 @@ function test_batch_delete_variables(ModelType)
     @test_throws Exception JuMP.delete(second_model, x[[1, 3]])
 end
 
+
 function variables_test(ModelType)
 
     @testset "Constructors" begin
         test_variable_no_bound(ModelType)
-        test_variable_binary_plus_x(ModelType)
         test_variable_lower_bound_rhs(ModelType)
         test_variable_lower_bound_lhs(ModelType)
         test_variable_upper_bound_rhs(ModelType)
         test_variable_upper_bound_lhs(ModelType)
         test_variable_interval(ModelType)
+        test_variable_interval_delete_upper(ModelType)
+        test_variable_interval_delete_lower(ModelType)
         test_variable_fix(ModelType)
-        test_variable_int(ModelType)
-        test_variable_start(ModelType)
+        test_variable_binary(ModelType)
+        test_variable_integer(ModelType)
+        test_variable_starts_set_get(ModelType)
+        test_variable_bounds_set_get(ModelType)
+        test_variable_fixed_set_get(ModelType)
+        test_variable_binary_set_get(ModelType)
+        test_variable_integrality_set_get(ModelType)
+        test_variable_name(ModelType)
         test_variable_custom_index_sets(ModelType)
         test_variable_anonymous(ModelType)
     end
@@ -312,7 +579,7 @@ end
         model = PolyModel{PolyVar{true}}()
         @variable(model, x)
         @variable(model, y)
-        @test [x, y] == @inferred JuMP.all_variables(model)
+        @test [x, y] == JuMP.all_variables(model)
     end
     @testset "@variables" begin
         model = PolyModel{PolyVar{true}}()
@@ -321,6 +588,6 @@ end
             y ≥ 2, Bin
             z ≤ 3
         end
-        @test length(model.constraints) == 4
+        @test length(all_constraints(model)) == 4
     end
 end

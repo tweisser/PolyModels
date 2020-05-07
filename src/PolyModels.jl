@@ -21,8 +21,10 @@ A model for a polynomial optimization problem.
 """
 mutable struct PolyModel{VT <: MP.AbstractVariable} <: AbstractPolyModel
     vct::Int
+    variable_names::Vector{AbstractString}
     variables::Dict{Int, VT}
-    variable_info::Dict{Int, Any}
+    variable_info::Dict{Int, Any} # PolyVariableInfo is not defined yet. 
+    
     cct::Int
     constraint_names::Vector{AbstractString}
     constraints::Dict{Int, JuMP.AbstractConstraint}
@@ -37,7 +39,7 @@ Base.broadcastable(pm::PolyModel) = Ref(pm)
 
 function PolyModel{VT}() where {VT <: MP.AbstractVariable}
     return PolyModel{VT}(
-                             0, Dict{VT, Int}(), Dict{Int, Any}(),
+                             0, AbstractString[], Dict{VT, Int}(), Dict{Int, Any}(),
                              0, AbstractString[], Dict{Int, JuMP.AbstractConstraint}(),
                              MOI.FEASIBILITY_SENSE, zero(polynomialtype(VT, Float64)),
                              Dict{Symbol, Any}())
@@ -168,8 +170,6 @@ function feasible_set_with_fix(model::PolyModel{VT}) where {VT}
         set = intersect(set, @set subs(eq, [k => v for (k,v) in fixed]...)  == 0)
     end
     vars = setdiff(object.(all_variables(model)), collect(keys(fixed)))
-    @info object.(all_variables(model))
-    @info collect(keys(fixed))
     return FeasibleSetWithFix(sort!(vars, rev = true), set, fixed)
 end
 
