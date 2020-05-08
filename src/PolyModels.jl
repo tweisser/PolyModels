@@ -168,12 +168,22 @@ function feasible_set_with_fix(model::PolyModel{VT}) where {VT}
         end
     end
     for i in 1:length(ineqs)
-        ineqs[i] = subs(ineqs[i],  [k => v for (k,v) in fixed]...)
+        tmp = subs(ineqs[i],  [k => v for (k,v) in fixed]...)
+        if maxdegree(tmp) == 0
+            @assert convert(Float64, tmp) >= 0 "A negative number is requested to be non-negative. Set is empty."
+        else
+            ineqs[i] = subs(ineqs[i],  [k => v for (k,v) in fixed]...)
+        end
     end
     set = basicsemialgebraicset(FullSpace(), ineqs)
     
     for eq in eqs
-        set = intersect(set, @set subs(eq, [k => v for (k,v) in fixed]...)  == 0)
+        tmp = subs(eq, [k => v for (k,v) in fixed]...)
+        if maxdegree(tmp) == 0
+            @assert convert(Float64, tmp) == 0 "A non-zero number is requested to be zero. Set is empty."
+        else
+            set = intersect(set, @set subs(eq, [k => v for (k,v) in fixed]...)  == 0)
+        end
     end
     vars = setdiff(object.(all_variables(model)), collect(keys(fixed)))
     return FeasibleSetWithFix(sort!(vars, rev = true), set, fixed)
