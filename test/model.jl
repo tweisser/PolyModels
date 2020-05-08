@@ -1,9 +1,13 @@
 function test_model_basic(ModelType)
-    @test ModelType() isa PolyModel
+    m = ModelType() 
+    @test m isa PolyModel
+    @test termination_status(m) == MOI.TerminationStatusCode(24)
+    @test backend(m) == m
+    @test JuMP.num_nl_constraints(m) == 0
+
 end
 
 @testset "Basic Model" begin
     test_model_basic(PolyModel{PolyVar{true}})
     test_model_basic(PolyModel{PolyVar{false}})
-    @test JuMP.num_nl_constraints(PolyModel{PolyVar{true}}()) == 0
 end

@@ -63,7 +63,7 @@ using SemialgebraicSets
 using SumOfSquares.Certificate.CEG
 
 export FeasibleSet, FeasibleSetWithFix, CSPFeasibleSet
-export cliques, sets, set
+export cliques, sets, set, fixed_variables
 
 abstract type AbstractFeasibleSet end
 
@@ -131,7 +131,13 @@ end
 function _single_variable(p::PT) where {PT <: MP. AbstractPolynomialLike}
     if maxdegree(p) == 1 && length(effective_variables(p)) == 1
         success = true
-        constant = first(coefficients(p))
+        constant = 1
+        if length(coefficients(p)) == 2
+            constant = -coefficients(p)[2]
+        else
+            constant = 0 
+        end
+        constant = constant/first(coefficients(p))
         pol = first(effective_variables(p))
     else
         success = false
@@ -149,9 +155,9 @@ function feasible_set_with_fix(model::PolyModel{VT}) where {VT}
 
     for con in all_constraints(model)
         if con.set isa MOI.EqualTo
-            s, p, c = _single_variable(jump_function(con))
+            s, p, c = _single_variable(jump_function(con)-MOI.constant(moi_set(con)))
             if s
-                fixed[p] = MOI.constant(moi_set(con))/c
+                fixed[p] = c
             else
                 push!(eqs, con.func - MOI.constant(moi_set(con)))
             end

@@ -59,6 +59,7 @@ Base.iterate(x::PolyVariableRef) = (x, true)
 Base.iterate(::PolyVariableRef, state) = nothing
 Base.isempty(::PolyVariableRef) = false
 Base.length(::PolyVariableRef) = 1
+LinearAlgebra.dot(v1::PolyVariableRef{VT}, v2::PolyVariableRef{VT}) where {VT} = v1[1]*v2[1]
 function Base.getindex(vref::PolyVariableRef, i)
     @assert i == 1 "PolyVariableRef $vref refers to a single variable only."
     return vref
@@ -96,7 +97,7 @@ Base.:*(vref::PolyVariableRef, p::Number) = prod(Base.promote_typeof(p, vref)[vr
 Base.:*(vref::PolyVariableRef, p::MP.AbstractPolynomialLike) = prod(Base.promote_typeof(p, vref)[vref, p])
 
 MutableArithmetics.mutable_operate_to!(p::PT, ::typeof(*), a::Float64, v::PolyVariableRef{VT}) where {PT<:MP.AbstractPolynomialLike, VT<:MP.AbstractVariable} = MutableArithmetics.mutable_operate_to!(p, *, a, object(v))
-
+MutableArithmetics.mutable_operate_to!(p::PT, ::typeof(*), a::PolyVariableRef{VT}, v::PolyVariableRef{VT}) where {PT<:MP.AbstractPolynomialLike, VT<:MP.AbstractVariable} = MutableArithmetics.mutable_operate_to!(p, *, object(a), object(v))
 
 function JuMP.is_valid(model::PolyModel, vref::PolyVariableRef)
     return owner_model(vref) == model && haskey(owner_model(vref).variables, index(vref)) 

@@ -12,14 +12,14 @@ function JuMP.set_objective_function(model::PolyModel, func::AbstractPolynomialL
     model.objective_function = func
 end
 
-function JuMP.set_objective_function(model::PolyModel{VT}, func::Real) where {VT}
-    set_objective_function(model, func*zero(polynomialtype(Float64, VT)))
+function JuMP.set_objective_function(model::PolyModel{VT}, func::Union{Real, PolyVariableRef{VT}}) where {VT}
+    set_objective_function(model, func*one(polynomialtype(Float64, VT)))
 end
 
 function JuMP.set_objective(
     model::PolyModel,
     sense::MOI.OptimizationSense,
-    func::Union{AbstractPolynomialLike, Real}
+    func::Union{AbstractPolynomialLike, Real, PolyVariableRef}
 )
     set_objective_sense(model, sense)
     set_objective_function(model, func)
