@@ -61,7 +61,7 @@ struct PolynomialVectorConstraint{F <: AbstractPolynomialLike,
                         S <: MOI.AbstractVectorSet} <: AbstractPolynomialConstraint
     func::Vector{F}
     set::S
-    function PolynomialConstraint(func, set)
+    function PolynomialVectorConstraint(func, set)
         PT = polynomialtype(Float64, MP.variable_union_type(func))
         new{PT, typeof(set)}(convert.(PT, func), set)
     end

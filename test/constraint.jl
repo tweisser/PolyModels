@@ -181,6 +181,7 @@ function constraints_test(ModelType::Type{PolyModel{VT}}) where { VT}
         @variable(model, x)
         @constraint(model, con, x^2 == 1)
         test_constraint_name(con, "con", polynomialtype(Float64, VT), MOI.EqualTo{Float64})
+        @test JuMP.constraint_by_name(model, "con") == con
         JuMP.set_name(con, "kon")
         @test JuMP.constraint_by_name(model, "con") isa Nothing
         test_constraint_name(con, "kon", polynomialtype(Float64, VT), MOI.EqualTo{Float64})

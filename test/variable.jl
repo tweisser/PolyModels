@@ -18,6 +18,14 @@ function test_variable_no_bound(ModelType::Type{PolyModel{VT}}) where {VT}
     @test zero(nobounds) isa polynomialtype(VT, Int)
     @test one(nobounds) isa monomialtype(VT)
     @test_throws ErrorException @variable(model, nobounds)
+    @test nobounds[1] == nobounds
+    @test !iszero(nobounds)
+    x = nobounds
+    @test JuMP.isequal_canonical(x, x)
+    @test x + x - x == PolyModels.object(x)
+    @test x - x + x == PolyModels.object(x)
+    @test 2*x - x == PolyModels.object(x)
+    @test x*2 - x == PolyModels.object(x)
 end
 
 function test_variable_name(ModelType)
@@ -121,7 +129,8 @@ function test_variable_interval(ModelType)
         @test lb == JuMP.lower_bound(var)
         @test JuMP.has_upper_bound(var)
         @test ub == JuMP.upper_bound(var)
-
+        @test interval(var) == [lb, ub]
+        
         test_constraint(IntervalRef(var), (var - lb)*(ub - var), MOI.GreaterThan(0.0))
 
         @test !JuMP.is_fixed(var)
@@ -158,6 +167,12 @@ function test_variable_interval_delete_upper(ModelType)
     @test !PolyModels.in_interval(both)
 
     test_constraint(JuMP.LowerBoundRef(both), PolyModels.object(both), MOI.GreaterThan(0.0))
+
+    set_in_interval(both, 0, 1)
+    @test in_interval(both)
+    
+    set_in_interval(both, -1, 2)
+    @test in_interval(both)
 end
 
 function test_variable_interval_delete_lower(ModelType)
@@ -172,6 +187,13 @@ function test_variable_interval_delete_lower(ModelType)
     @test !PolyModels.in_interval(both)
 
     test_constraint(JuMP.UpperBoundRef(both), -PolyModels.object(both) + 1, MOI.GreaterThan(0.0))
+
+    set_in_interval(both, 0, 1)
+    @test in_interval(both)
+    
+    set_in_interval(both, 0, 2)
+    @test in_interval(both)
+
 end
 
 function test_variable_fix(ModelType)
@@ -250,6 +272,8 @@ function test_variable_starts_set_get(ModelType)
     model = ModelType()
     @variable(model, y, start = 1.0)
     @test start_value(y) == 1.0
+    JuMP.set_start_value(y, 0.0)
+    @test start_value(y) == 0.0
 
     @variable(model, x[1:3])
     x0 = collect(1:3)
@@ -274,10 +298,18 @@ function test_variable_bounds_set_get(ModelType)
     test_constraint(IntervalRef(x), (x-1)*(2-x), MOI.GreaterThan(0.0))
     @test length(all_constraints(model)) == 1
 
+    set_lower_bound(x, 2)
+    @test 2 == JuMP.lower_bound(x)
+    
     set_upper_bound(x, 3)
     @test 3 == JuMP.upper_bound(x)
-    test_constraint(IntervalRef(x), (x-1)*(3-x), MOI.GreaterThan(0.0))
+    test_constraint(IntervalRef(x), (x-2)*(3-x), MOI.GreaterThan(0.0))
     @test length(all_constraints(model)) == 1
+    
+    delete_lower_bound(x)
+    @test !has_lower_bound(x)
+    set_upper_bound(x, 2)
+    @test upper_bound(x) == 2
 end
 
 function test_variable_fixed_set_get(ModelType)
@@ -378,6 +410,10 @@ function test_variable_integrality_set_get(ModelType)
     JuMP.unset_binary(y)
     @test !JuMP.is_binary(y)
 
+    @test_throws ErrorException set_binary(x[2])
+    set_binary(x[2]; force = true)
+    @test is_binary(x[2])
+    @test !is_integer(x[2])
 end
 
 function test_variable_custom_index_sets(ModelType)

@@ -64,11 +64,6 @@ function Base.getindex(vref::PolyVariableRef, i)
     return vref
 end
 
-function JuMP.VariableRef(model::PolyModel{VT}, x::VT) where {VT<:MP.AbstractVariable}
-    lookup = Dict(val => key for (key, val) in model.variables)
-    @assert haskey(lookup, x) "Polynomial variable $x is not registered in requested model."
-    return PolyVariableRef(model, lookup[x])
-end
 
 Base.promote_rule(::Type{T}, ::Type{PolyVariableRef{VT}}) where {T <: Union{Number, JuMP.AbstractJuMPScalar}, VT <:MP.AbstractVariable} = promote_type(T, VT)
 Base.promote_rule(::Type{PolyVariableRef{VT}}, ::Type{T}) where {T <: Union{Number, JuMP.AbstractJuMPScalar}, VT <:MP.AbstractVariable} = promote_type(T, VT)
@@ -154,10 +149,6 @@ function JuMP.has_lower_bound(v::PolyVariableRef)
     return info(v).has_lb
 end
 
-function _lower_bound_index(v::PolyVariableRef)
-    return info(v).lb_constraint    
-end
-
 function JuMP.lower_bound(v::PolyVariableRef)
     @assert has_lower_bound(v) "Variable $(v) does not have a lower bound."
     return info(v).lower
@@ -232,10 +223,6 @@ end
 # upper bound for variables
 function JuMP.has_upper_bound(v::PolyVariableRef)
     return info(v).has_ub
-end
-
-function _upper_bound_index(v::PolyVariableRef)
-    return info(v).ub_constraint    
 end
 
 function JuMP.upper_bound(v::PolyVariableRef)
@@ -314,10 +301,6 @@ function in_interval(v::PolyVariableRef)
     return info(v).in_interval
 end
 
-function _interval_index(v::PolyVariableRef)
-    return info(v).in_constraint    
-end
-
 export interval
 function interval(v::PolyVariableRef)
     @assert in_interval(v) "Variable $v is not constrained to an interval."
@@ -386,10 +369,6 @@ function JuMP.is_fixed(v::PolyVariableRef)
     return info(v).has_fix
 end
 
-function JuMP._fix_index(v::PolyVariableRef)
-    return info(v).fix_constraint
-end
-
 function JuMP.fix_value(v::PolyVariableRef)
     @assert is_fixed(v) "Variable $v is not fixed to any value."
     return info(v).fix_value
@@ -448,13 +427,8 @@ function JuMP.unfix(v::PolyVariableRef)
 end
 
 
-
 function JuMP.is_binary(v::PolyVariableRef)
     return info(v).binary
-end
-
-function _binary_index(v::PolyVariableRef)
-    return info(v).bin_constraint
 end
 
 function _set_binary(model::PolyModel, idx::Int)
@@ -504,10 +478,6 @@ end
 # integer variables
 function JuMP.is_integer(v::PolyVariableRef)
     return info(v).integer
-end
-
-function _integer_index(v::PolyVariableRef)
-    return info(v).int_constraint
 end
 
 function _set_integer(model::PolyModel, idx::Int, lower::Number, upper::Number)
