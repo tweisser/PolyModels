@@ -50,6 +50,7 @@ JuMP.num_variables(model::PolyModel)::Int64 = length(model.variables)
 JuMP.object_dictionary(model::PolyModel) = model.obj_dict
 JuMP.termination_status(::PolyModel) = MOI.TerminationStatusCode(24)
 JuMP.backend(model::PolyModel) = model
+polyvariable_type(model::PolyModel{VT}) where VT = VT
 
 # additional JuMP function to use AbstractPolynomiallike
 JuMP.isequal_canonical(p1::AbstractPolynomialLike, p2::AbstractPolynomialLike) = p1 == p2
@@ -60,7 +61,7 @@ include("objective.jl")
 include("print.jl")
 
 using SemialgebraicSets
-using SumOfSquares.Certificate.CEG
+import SumOfSquares.Certificate.chordal_csp_graph
 
 export FeasibleSet, FeasibleSetWithFix, CSPFeasibleSet
 export cliques, sets, set, fixed_variables
@@ -76,6 +77,8 @@ MP.variables(fset::AbstractFeasibleSet) = fset.variables
 cliques(fset::AbstractFeasibleSet) = [variables(fset)]
 set(fset::AbstractFeasibleSet) = fset.set
 sets(fset::AbstractFeasibleSet) = [set(fset)]
+fixed_variables(fset::FeasibleSet{VT}) where VT = Dict{VT, Int}()
+
 
 struct FeasibleSetWithFix{VT, ST <: SemialgebraicSets.AbstractSemialgebraicSet, T <: Number} <:AbstractFeasibleSet
     variables::Vector{VT}
@@ -83,16 +86,17 @@ struct FeasibleSetWithFix{VT, ST <: SemialgebraicSets.AbstractSemialgebraicSet, 
     fixed_variables::Dict{VT, T}
 end
 
-fixed_variables(fset::FeasibleSetWithFix) = fset.fixed_variables
-
-struct CSPFeasibleSet{VT} <: AbstractFeasibleSet
+struct CSPFeasibleSet{VT, ST <: SemialgebraicSets.AbstractSemialgebraicSet, T <: Number} <: AbstractFeasibleSet
     cliques::Vector{Vector{VT}}
-    sets::Vector{Any}
+    sets::Vector{ST}
+    fixed_variables::Dict{VT, T}
 end
+
+fixed_variables(fset::Union{FeasibleSetWithFix, CSPFeasibleSet}) = fset.fixed_variables
 
 cliques(fset::CSPFeasibleSet) = fset.cliques
 MP.variables(fset::CSPFeasibleSet) = sort!(collect(set(vars for vars in cliques(fset))), rev = true)
-sets(fset::CSPFeasibleSet) = fset.set
+sets(fset::CSPFeasibleSet) = fset.sets
 Base.length(fset::CSPFeasibleSet) = length(cliques(fset))
 Base.iterate(fset::CSPFeasibleSet) = (FeasibleSet(first(cliques(fset)), first(sets(fset))), 1)
 Base.iterate(fset::CSPFeasibleSet, i) = (FeasibleSet(cliques(fset)[i+1], sets(fset)[i+1]), i+1)
@@ -105,8 +109,14 @@ export feasible_set
 Returns the feasible set of model.
 If `csp = true` returns a vector of feasible sets .
 """
-function feasible_set(model::PolyModel; csp = false)
-    csp ? csp_feasible_set : dense_feasible_set(model) 
+function feasible_set(model::PolyModel; csp = false, fix = false)
+    if csp
+        return csp_feasible_set(model, fix = fix)
+    elseif fix
+        return feasible_set_with_fix(model)
+    else
+        return dense_feasible_set(model)
+    end
 end
 
 function dense_feasible_set(model::PolyModel{VT}) where {VT}
@@ -147,7 +157,6 @@ function _single_variable(p::PT) where {PT <: MP. AbstractPolynomialLike}
     return success, pol, constant
 end
 
-export feasible_set_with_fix
 function feasible_set_with_fix(model::PolyModel{VT}) where {VT}
     eqs = polynomialtype(Float64, VT)[]
     ineqs = polynomialtype(Float64, VT)[]
@@ -191,8 +200,37 @@ end
 
 
 
-function csp_feasible_set(model::PolyModel)
+function csp_feasible_set(model::PolyModel; fix = true)
+    fset = feasible_set(model; fix = fix)
+    if fix
+        obj = subs(objective_function(model), fixed_variables(fset)...)
+    else
+        obj = objective_function(model)
+    end
 
+    _, cliques = chordal_csp_graph(obj, set(fset))
+
+    PT = polynomialtype(polyvariable_type(model), Float64)
+    eqs = [PT[] for i = 1: length(cliques)]
+    ineqs = [PT[] for i = 1: length(cliques)]
+
+    for (i, vars) in enumerate(cliques)
+
+        for p in equalities(set(fset))
+            if variables(p) ⊆ vars
+                push!(eqs[i], p)
+            end
+        end
+
+        for p in inequalities(set(fset))
+            if variables(p) ⊆ vars
+                push!(ineqs[i], p)            
+            end
+        end
+
+    end
+
+    return CSPFeasibleSet(cliques, [basicsemialgebraicset(algebraicset(eqs[i]), ineqs[i]) for i = 1:length(cliques)], fixed_variables(fset))
 end
 
 

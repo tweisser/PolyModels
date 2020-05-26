@@ -10,4 +10,7 @@ end
 @testset "Basic Model" begin
     test_model_basic(PolyModel{PolyVar{true}})
     test_model_basic(PolyModel{PolyVar{false}})
+
+    m = PolyModel{PolyVar{true}}()
+    @test PolyModels.polyvariable_type(m) == PolyVar{true}
 end
