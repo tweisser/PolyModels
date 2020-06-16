@@ -104,10 +104,11 @@ Base.iterate(fset::CSPFeasibleSet, i) = (FeasibleSet(cliques(fset)[i+1], sets(fs
 export feasible_set
 
 """
-    feasible_set(model::PolyModel; csp = false)
+    feasible_set(model::PolyModel; csp = false, fix = false)
 
 Returns the feasible set of model.
 If `csp = true` returns a vector of feasible sets .
+If `fix = true` constraints `variable == value` are eliminated and a `FeaeibleSetWithFix` is returned. 
 """
 function feasible_set(model::PolyModel; csp = false, fix = false)
     if csp
@@ -234,4 +235,21 @@ function csp_feasible_set(model::PolyModel; fix = true)
 end
 
 
+function MP.maxdegree(model::PolyModel)
+    deg = maxdegree(objective_function(model))
+    cdeg = maxdegree.([jump_function(con) for con in all_constraints(model)])
+    return maximum([deg, cdeg...])
+end
+#=
+function moment_relaxation(m::PolyModel, factory; degree = maxdegree(model), scheme = PutinarScheme())
+    F = feasible_set(m)
+    gmp = GMPModel(factory)
+    @variable gmp mu Meas(variables(F), support = set(F), scheme = scheme)
+    @objective gmp objective_sense(m) Mom(objective_function(m), mu)
+    @constraint gmp Mom(1, mu) == 1
+    set_approximation_degree(gmp, degree)
+    optimize!(gmp)
+    return gmp, mu
+end
+=#
 end # module
